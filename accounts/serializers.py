@@ -2,10 +2,13 @@ from rest_framework import serializers
 from .models import Animal
 from django.contrib.auth.models import User
 
+from rest_framework import serializers
+from .models import Animal
+
 class AnimalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Animal
-        fields = ['id', 'name', 'species', 'age', 'user']  # Adjust fields as per your model
+        fields = ['id', 'species', 'sex', 'date_of_birth', 'breed', 'production_purpose', 'about_animal']
 
 class SignUpSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

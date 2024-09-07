@@ -20,18 +20,23 @@ def home(request):
     return Response({"message": "Welcome to the Animal Management API."})
 
 
-# List, Add, Update, and Delete Animals (API)
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
-def animal_management(request):
+def animal_management(request, animal_id=None):
     if request.method == 'GET':
-        # Get all animals associated with the logged-in user
-        animals = Animal.objects.filter(user=request.user)
-        serializer = AnimalSerializer(animals, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        if animal_id:
+            try:
+                animal = Animal.objects.get(pk=animal_id, user=request.user)
+                serializer = AnimalSerializer(animal)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except Animal.DoesNotExist:
+                return Response({"error": "Animal not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            animals = Animal.objects.filter(user=request.user)
+            serializer = AnimalSerializer(animals, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        # Handle adding a new animal
         serializer = AnimalSerializer(data=request.data)
         if serializer.is_valid():
             animal = serializer.save(user=request.user)
@@ -39,29 +44,30 @@ def animal_management(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'PUT':
-        # Handle updating an existing animal
-        animal_id = request.data.get('animal_id')
+        if not animal_id:
+            return Response({"error": "Animal ID is required for updating."}, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
             animal = Animal.objects.get(pk=animal_id, user=request.user)
         except Animal.DoesNotExist:
             return Response({"error": "Animal not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = AnimalSerializer(animal, data=request.data)
+        serializer = AnimalSerializer(animal, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
-        # Handle deleting an animal
-        animal_id = request.data.get('animal_id')
+        if not animal_id:
+            return Response({"error": "Animal ID is required for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
             animal = Animal.objects.get(pk=animal_id, user=request.user)
             animal.delete()
             return Response({"message": "Animal deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except Animal.DoesNotExist:
             return Response({"error": "Animal not found."}, status=status.HTTP_404_NOT_FOUND)
-
 
 # User login API
 @api_view(['POST'])
@@ -89,19 +95,3 @@ def viewsign(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# Using DRF Generic API views for Animals
-class AnimalListCreateView(generics.ListCreateAPIView):
-    serializer_class = AnimalSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Animal.objects.filter(user=self.request.user)
-
-
-class AnimalDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = AnimalSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        obj = generics.get_object_or_404(Animal, pk=self.kwargs['pk'], user=self.request.user)
-        return obj
